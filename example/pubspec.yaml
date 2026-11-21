@@ -1,0 +1,28 @@
+name: spacewidget_example
+description: A JSON-driven app built with SpaceWidget.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  dio: ^5.11.1
+  spacewidget_adapters:
+    path: ../packages/spacewidget_adapters
+  cupertino_icons: ^2.0.0
+  flutter:
+    sdk: flutter
+  spacewidget:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/app.json
+    - assets/sample.pdf

@@ -1,0 +1,746 @@
+{
+  "schemaVersion": 1,
+  "title": "SpaceWidget Studio",
+  "theme": {
+    "seedColor": "#4F46E5",
+    "backgroundColor": "#FFFFFF"
+  },
+  "state": {
+    "user": {
+      "name": "Sakthi",
+      "email": "sakthi@example.com"
+    },
+    "projectCount": 3,
+    "lastSync": "A moment ago",
+    "projects": [
+      {
+        "name": "SpaceWidget",
+        "initial": "S",
+        "description": "JSON-driven Flutter apps",
+        "status": "Building"
+      },
+      {
+        "name": "Connet",
+        "initial": "C",
+        "description": "A connected community",
+        "status": "Live"
+      },
+      {
+        "name": "Next idea",
+        "initial": "N",
+        "description": "Your next great project",
+        "status": "Planning"
+      }
+    ]
+  },
+  "routes": {
+    "/": {
+      "type": "scaffold",
+      "appBar": {
+        "type": "appBar",
+        "title": "SpaceWidget Studio",
+        "actions": [
+          {
+            "type": "iconButton",
+            "icon": "info",
+            "tooltip": "About SpaceWidget",
+            "action": {
+              "type": "dialog",
+              "content": {
+                "type": "alertDialog",
+                "title": "Built from JSON",
+                "text": "Every screen in this app is rendered by SpaceWidget. Custom Dart handlers connect your backend.",
+                "actions": [
+                  {
+                    "type": "textButton",
+                    "text": "Got it",
+                    "action": {
+                      "type": "pop"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "body": {
+        "type": "safeArea",
+        "child": {
+          "type": "padding",
+          "padding": 24,
+          "child": {
+            "type": "refreshIndicator",
+            "onRefresh": "refresh",
+            "child": {
+              "type": "listView",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "Welcome back, {{user.name}}",
+                  "fontSize": 26,
+                  "fontWeight": 700
+                },
+                {
+                  "type": "sizedBox",
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "text": "Here is what is happening in your workspace.",
+                  "color": "#64748B"
+                },
+                {
+                  "type": "sizedBox",
+                  "height": 24
+                },
+                {
+                  "type": "container",
+                  "backgroundColor": "#312E81",
+                  "borderRadius": 24,
+                  "padding": 24,
+                  "child": {
+                    "type": "column",
+                    "crossAxisAlignment": "start",
+                    "mainAxisSize": "min",
+                    "children": [
+                      {
+                        "type": "text",
+                        "text": "YOUR WORKSPACE",
+                        "fontSize": 11,
+                        "fontWeight": 700,
+                        "letterSpacing": 2,
+                        "color": "#C7D2FE"
+                      },
+                      {
+                        "type": "sizedBox",
+                        "height": 12
+                      },
+                      {
+                        "type": "text",
+                        "text": "Build something\nworth sharing.",
+                        "fontSize": 32,
+                        "fontWeight": 700,
+                        "color": "white"
+                      },
+                      {
+                        "type": "sizedBox",
+                        "height": 12
+                      },
+                      {
+                        "type": "text",
+                        "text": "Layouts, forms, navigation, and live state.\nAll powered by one JSON configuration.",
+                        "color": "#E0E7FF",
+                        "fontSize": 14
+                      },
+                      {
+                        "type": "sizedBox",
+                        "height": 20
+                      },
+                      {
+                        "type": "filledButton",
+                        "text": "Explore projects",
+                        "action": {
+                          "type": "navigate",
+                          "route": "/projects"
+                        },
+                        "backgroundColor": "white",
+                        "color": "#312E81",
+                        "borderRadius": 12
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "sizedBox",
+                  "height": 20
+                },
+                {
+                  "type": "row",
+                  "spacing": 12,
+                  "children": [
+                    {
+                      "type": "expanded",
+                      "child": {
+                        "type": "card",
+                        "borderRadius": 20,
+                        "elevation": 0,
+                        "backgroundColor": "#EEF2FF",
+                        "child": {
+                          "type": "padding",
+                          "padding": 16,
+                          "child": {
+                            "type": "column",
+                            "mainAxisSize": "min",
+                            "crossAxisAlignment": "start",
+                            "children": [
+                              {
+                                "type": "icon",
+                                "name": "grid",
+                                "color": "#4F46E5"
+                              },
+                              {
+                                "type": "sizedBox",
+                                "height": 12
+                              },
+                              {
+                                "type": "text",
+                                "text": "{{projectCount}}",
+                                "fontSize": 28,
+                                "fontWeight": 700
+                              },
+                              {
+                                "type": "text",
+                                "text": "Projects",
+                                "fontSize": 12
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "expanded",
+                      "child": {
+                        "type": "card",
+                        "borderRadius": 20,
+                        "elevation": 0,
+                        "backgroundColor": "#EEF2FF",
+                        "child": {
+                          "type": "padding",
+                          "padding": 16,
+                          "child": {
+                            "type": "column",
+                            "mainAxisSize": "min",
+                            "crossAxisAlignment": "start",
+                            "children": [
+                              {
+                                "type": "icon",
+                                "name": "people",
+                                "color": "#4F46E5"
+                              },
+                              {
+                                "type": "sizedBox",
+                                "height": 12
+                              },
+                              {
+                                "type": "text",
+                                "text": "8",
+                                "fontSize": 28,
+                                "fontWeight": 700
+                              },
+                              {
+                                "type": "text",
+                                "text": "Team members",
+                                "fontSize": 12
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "expanded",
+                      "child": {
+                        "type": "card",
+                        "borderRadius": 20,
+                        "elevation": 0,
+                        "backgroundColor": "#EEF2FF",
+                        "child": {
+                          "type": "padding",
+                          "padding": 16,
+                          "child": {
+                            "type": "column",
+                            "mainAxisSize": "min",
+                            "crossAxisAlignment": "start",
+                            "children": [
+                              {
+                                "type": "icon",
+                                "name": "check",
+                                "color": "#4F46E5"
+                              },
+                              {
+                                "type": "sizedBox",
+                                "height": 12
+                              },
+                              {
+                                "type": "text",
+                                "text": "12",
+                                "fontSize": 28,
+                                "fontWeight": 700
+                              },
+                              {
+                                "type": "text",
+                                "text": "Completed",
+                                "fontSize": 12
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "sizedBox",
+                  "height": 24
+                },
+                {
+                  "type": "text",
+                  "text": "Recent projects",
+                  "fontSize": 22,
+                  "fontWeight": 700
+                },
+                {
+                  "type": "sizedBox",
+                  "height": 12
+                },
+                {
+                  "type": "repeat",
+                  "items": "{{projects}}",
+                  "template": {
+                    "type": "card",
+                    "borderRadius": 16,
+                    "elevation": 0,
+                    "backgroundColor": "#F1F5F9",
+                    "child": {
+                      "type": "padding",
+                      "padding": 16,
+                      "child": {
+                        "type": "row",
+                        "children": [
+                          {
+                            "type": "circleAvatar",
+                            "text": "{{item.initial}}",
+                            "backgroundColor": "#E0E7FF"
+                          },
+                          {
+                            "type": "sizedBox",
+                            "width": 16
+                          },
+                          {
+                            "type": "expanded",
+                            "child": {
+                              "type": "column",
+                              "mainAxisSize": "min",
+                              "crossAxisAlignment": "start",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "text": "{{item.name}}",
+                                  "fontWeight": 600,
+                                  "fontSize": 16
+                                },
+                                {
+                                  "type": "text",
+                                  "text": "{{item.description}}",
+                                  "fontSize": 12,
+                                  "color": "#64748B"
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "type": "statusPill",
+                            "text": "{{item.status}}"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "sizedBox",
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "text": "Last synced: {{lastSync}}",
+                  "fontSize": 12,
+                  "color": "#64748B"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "bottomNavigationBar": {
+        "type": "navigationBar",
+        "selectedIndex": 0,
+        "destinations": [
+          {
+            "icon": "dashboard",
+            "label": "Overview",
+            "action": {
+              "type": "navigate",
+              "route": "/"
+            }
+          },
+          {
+            "icon": "list",
+            "label": "Projects",
+            "action": {
+              "type": "navigate",
+              "route": "/projects"
+            }
+          },
+          {
+            "icon": "person",
+            "label": "Profile",
+            "action": {
+              "type": "navigate",
+              "route": "/profile"
+            }
+          }
+        ]
+      }
+    },
+    "/projects": {
+      "type": "scaffold",
+      "appBar": {
+        "type": "appBar",
+        "title": "Projects",
+        "actions": [
+          {
+            "type": "iconButton",
+            "icon": "info",
+            "tooltip": "About SpaceWidget",
+            "action": {
+              "type": "dialog",
+              "content": {
+                "type": "alertDialog",
+                "title": "Built from JSON",
+                "text": "Every screen in this app is rendered by SpaceWidget. Custom Dart handlers connect your backend.",
+                "actions": [
+                  {
+                    "type": "textButton",
+                    "text": "Got it",
+                    "action": {
+                      "type": "pop"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "body": {
+        "type": "safeArea",
+        "child": {
+          "type": "padding",
+          "padding": 24,
+          "child": {
+            "type": "listView",
+            "children": [
+              {
+                "type": "text",
+                "text": "Your projects",
+                "fontSize": 22,
+                "fontWeight": 700
+              },
+              {
+                "type": "sizedBox",
+                "height": 8
+              },
+              {
+                "type": "text",
+                "text": "A live list rendered from controller state.",
+                "color": "#64748B"
+              },
+              {
+                "type": "sizedBox",
+                "height": 20
+              },
+              {
+                "type": "repeat",
+                "items": "{{projects}}",
+                "template": {
+                  "type": "card",
+                  "borderRadius": 16,
+                  "elevation": 0,
+                  "backgroundColor": "#F1F5F9",
+                  "child": {
+                    "type": "padding",
+                    "padding": 16,
+                    "child": {
+                      "type": "row",
+                      "children": [
+                        {
+                          "type": "circleAvatar",
+                          "text": "{{item.initial}}",
+                          "backgroundColor": "#E0E7FF"
+                        },
+                        {
+                          "type": "sizedBox",
+                          "width": 16
+                        },
+                        {
+                          "type": "expanded",
+                          "child": {
+                            "type": "column",
+                            "mainAxisSize": "min",
+                            "crossAxisAlignment": "start",
+                            "children": [
+                              {
+                                "type": "text",
+                                "text": "{{item.name}}",
+                                "fontWeight": 600,
+                                "fontSize": 16
+                              },
+                              {
+                                "type": "text",
+                                "text": "{{item.description}}",
+                                "fontSize": 12,
+                                "color": "#64748B"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "type": "statusPill",
+                          "text": "{{item.status}}"
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "type": "sizedBox",
+                "height": 20
+              },
+              {
+                "type": "filledButton",
+                "text": "Create a project",
+                "action": {
+                  "type": "dialog",
+                  "content": {
+                    "type": "alertDialog",
+                    "title": "Bring your own backend",
+                    "text": "Register an action handler to create projects with your API, database, or local storage.",
+                    "actions": [
+                      {
+                        "type": "textButton",
+                        "text": "Close",
+                        "action": {
+                          "type": "pop"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "bottomNavigationBar": {
+        "type": "navigationBar",
+        "selectedIndex": 1,
+        "destinations": [
+          {
+            "icon": "dashboard",
+            "label": "Overview",
+            "action": {
+              "type": "navigate",
+              "route": "/"
+            }
+          },
+          {
+            "icon": "list",
+            "label": "Projects",
+            "action": {
+              "type": "navigate",
+              "route": "/projects"
+            }
+          },
+          {
+            "icon": "person",
+            "label": "Profile",
+            "action": {
+              "type": "navigate",
+              "route": "/profile"
+            }
+          }
+        ]
+      }
+    },
+    "/profile": {
+      "type": "scaffold",
+      "appBar": {
+        "type": "appBar",
+        "title": "Your profile",
+        "actions": [
+          {
+            "type": "iconButton",
+            "icon": "info",
+            "tooltip": "About SpaceWidget",
+            "action": {
+              "type": "dialog",
+              "content": {
+                "type": "alertDialog",
+                "title": "Built from JSON",
+                "text": "Every screen in this app is rendered by SpaceWidget. Custom Dart handlers connect your backend.",
+                "actions": [
+                  {
+                    "type": "textButton",
+                    "text": "Got it",
+                    "action": {
+                      "type": "pop"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "body": {
+        "type": "safeArea",
+        "child": {
+          "type": "padding",
+          "padding": 24,
+          "child": {
+            "type": "listView",
+            "children": [
+              {
+                "type": "text",
+                "text": "Make it yours",
+                "fontSize": 22,
+                "fontWeight": 700
+              },
+              {
+                "type": "sizedBox",
+                "height": 8
+              },
+              {
+                "type": "text",
+                "text": "Validated forms with state that survives rebuilds.",
+                "color": "#64748B"
+              },
+              {
+                "type": "sizedBox",
+                "height": 24
+              },
+              {
+                "type": "form",
+                "id": "profile",
+                "children": [
+                  {
+                    "type": "input",
+                    "name": "name",
+                    "bind": "user.name",
+                    "label": "Display name",
+                    "required": true,
+                    "minLength": 2
+                  },
+                  {
+                    "type": "sizedBox",
+                    "height": 16
+                  },
+                  {
+                    "type": "input",
+                    "name": "email",
+                    "bind": "user.email",
+                    "label": "Email address",
+                    "required": true,
+                    "email": true,
+                    "keyboardType": "email"
+                  },
+                  {
+                    "type": "sizedBox",
+                    "height": 16
+                  },
+                  {
+                    "type": "dropdown",
+                    "name": "role",
+                    "label": "Role",
+                    "initialValue": "developer",
+                    "options": [
+                      {
+                        "label": "Developer",
+                        "value": "developer"
+                      },
+                      {
+                        "label": "Designer",
+                        "value": "designer"
+                      },
+                      {
+                        "label": "Product manager",
+                        "value": "product"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "sizedBox",
+                    "height": 16
+                  },
+                  {
+                    "type": "textArea",
+                    "name": "bio",
+                    "label": "About you",
+                    "hint": "Tell your team a little about yourself"
+                  },
+                  {
+                    "type": "sizedBox",
+                    "height": 16
+                  },
+                  {
+                    "type": "switch",
+                    "name": "notifications",
+                    "label": "Email notifications",
+                    "initialValue": true
+                  },
+                  {
+                    "type": "sizedBox",
+                    "height": 16
+                  },
+                  {
+                    "type": "filledButton",
+                    "text": "Save profile",
+                    "action": {
+                      "type": "submit",
+                      "form": "profile",
+                      "name": "saveProfile"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "bottomNavigationBar": {
+        "type": "navigationBar",
+        "selectedIndex": 2,
+        "destinations": [
+          {
+            "icon": "dashboard",
+            "label": "Overview",
+            "action": {
+              "type": "navigate",
+              "route": "/"
+            }
+          },
+          {
+            "icon": "list",
+            "label": "Projects",
+            "action": {
+              "type": "navigate",
+              "route": "/projects"
+            }
+          },
+          {
+            "icon": "person",
+            "label": "Profile",
+            "action": {
+              "type": "navigate",
+              "route": "/profile"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
