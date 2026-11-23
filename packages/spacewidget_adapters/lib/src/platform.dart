@@ -14,6 +14,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'return_links.dart';
+import 'pdf_web_stub.dart' if (dart.library.js_interop) 'pdf_web.dart';
+
 /// Native/browser integrations kept separate from the Flutter-only core.
 /// File and launch functions are injectable so applications can test flows
 /// without opening OS dialogs or contacting a payment provider.
@@ -28,6 +31,7 @@ class SpacePlatform {
   final Set<String>? allowedWebHosts;
   final bool allowInsecureLocalhost;
   final bool allowJavaScript;
+  final Set<String> allowedAppSchemes;
   SpacePlatform({
     Future<List<XFile>> Function()? selectFiles,
     Future<XFile?> Function()? capturePhoto,
@@ -39,6 +43,7 @@ class SpacePlatform {
     this.allowedWebHosts,
     this.allowInsecureLocalhost = false,
     this.allowJavaScript = false,
+    this.allowedAppSchemes = const {'mailto', 'tel'},
   }) : selectFiles = selectFiles ?? (() => openFiles()),
        capturePhoto =
            capturePhoto ??
@@ -75,7 +80,10 @@ class SpacePlatform {
         allowInsecureLocalhost &&
         uri.scheme == 'http' &&
         const {'localhost', '127.0.0.1', '::1'}.contains(uri.host);
-    if (uri == null || (uri.scheme != 'https' && !local) || uri.host.isEmpty) {
+    if (uri == null ||
+        (uri.scheme != 'https' && !local) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) {
       throw const FormatException('An absolute HTTPS URL is required');
     }
     if (allowedWebHosts != null && !allowedWebHosts!.contains(uri.host)) {
@@ -89,6 +97,30 @@ class SpacePlatform {
     'capturePhoto': (_) async {
       final file = await capturePhoto();
       return _files(file == null ? [] : [file]);
+    },
+    'openExternalApp': (request) async {
+      final uri = Uri.tryParse('${request.data['url']}');
+      if (uri == null ||
+          uri.userInfo.isNotEmpty ||
+          const {
+            'javascript',
+            'data',
+            'file',
+            'http',
+            'intent',
+            'vbscript',
+            'blob',
+          }.contains(uri.scheme)) {
+        throw const FormatException('Invalid external app destination');
+      }
+      if (uri.scheme == 'https') {
+        _webUri(uri.toString());
+      } else if (!allowedAppSchemes.contains(uri.scheme)) {
+        throw const FormatException(
+          'Configure allowedAppSchemes in the Flutter host',
+        );
+      }
+      return SpaceResult(success: await launch(uri));
     },
     'openUrl': (request) async {
       final opened = await launch(_webUri(request.data['url']));
@@ -206,6 +238,7 @@ class _SpaceVideoPlayerState extends State<SpaceVideoPlayer> {
     old?.removeListener(_progress);
     if (old != null) unawaited(old.dispose());
     _source = '${_value(widget.space, 'src', '')}';
+
     _error = null;
     if (_source.isEmpty) {
       _error = 'Media source is required';
@@ -462,6 +495,9 @@ class _SpaceWebView extends StatefulWidget {
 class _SpaceWebViewState extends State<_SpaceWebView> {
   WebViewController? _controller;
   String _source = '';
+  bool _handled = false;
+  String? _error;
+  int _progress = 0;
   @override
   void initState() {
     super.initState();
@@ -476,6 +512,9 @@ class _SpaceWebViewState extends State<_SpaceWebView> {
 
   void _load() {
     _source = '${_value(widget.space, 'src', '')}';
+    _handled = false;
+    _error = null;
+    _progress = 0;
     if (kIsWeb ||
         !const [
           TargetPlatform.android,
@@ -492,7 +531,49 @@ class _SpaceWebViewState extends State<_SpaceWebView> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onProgress: (progress) {
+            if (mounted) setState(() => _progress = progress);
+          },
+          onWebResourceError: (error) {
+            if (mounted && error.isForMainFrame != false) {
+              setState(
+                () => _error = 'Unable to load this page. Check the URL and network connection.',
+              );
+              unawaited(
+                widget.space.dispatch(widget.space.node.props['onError']),
+              );
+            }
+          },
           onNavigationRequest: (request) {
+            final uri = Uri.tryParse(request.url);
+            if (uri != null && request.isMainFrame) {
+              for (final entry in {
+                'returnUrl': 'onReturn',
+                'cancelUrl': 'onCancel',
+              }.entries) {
+                final expected = Uri.tryParse(
+                  '${_value(widget.space, entry.key, '')}',
+                );
+                if (expected != null && spaceMatchesReturnUri(uri, expected)) {
+                  if (!_handled) {
+                    _handled = true;
+                    final bind = widget.space.node.props['bind'];
+                    if (bind is String) {
+                      widget.space.controller.setValue(bind, {
+                        'url': uri.toString(),
+                        'query': uri.queryParameters,
+                      });
+                    }
+                    unawaited(
+                      widget.space.dispatch(
+                        widget.space.node.props[entry.value],
+                      ),
+                    );
+                  }
+                  return NavigationDecision.prevent;
+                }
+              }
+            }
             try {
               widget.validate(request.url);
               return NavigationDecision.navigate;
@@ -510,12 +591,20 @@ class _SpaceWebViewState extends State<_SpaceWebView> {
     if (_controller == null) {
       return TextButton(
         onPressed: () => widget.launch(widget.validate(_source)),
-        child: const Text('Open document'),
+        child: const Text('Open web content in browser'),
       );
     }
     return SizedBox(
       height: _number(widget.space, 'height', 400),
-      child: WebViewWidget(controller: _controller!),
+      child: Column(
+        children: [
+          if (_progress < 100 && _error == null)
+            LinearProgressIndicator(value: _progress / 100),
+          if (_error != null)
+            Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
+          Expanded(child: WebViewWidget(controller: _controller!)),
+        ],
+      ),
     );
   }
 }
@@ -632,6 +721,10 @@ class _SpaceDocumentState extends State<_SpaceDocument> {
   }
 
   Future<PdfDocument> _download(Uri uri, CancelToken cancellation) async {
+    await ensureSpacePdfEngine();
+    if (cancellation.isCancelled) {
+      throw StateError('Document loading cancelled');
+    }
     final response = await _dio.get<List<int>>(
       '$uri',
       options: Options(responseType: ResponseType.bytes),
@@ -656,7 +749,24 @@ class _SpaceDocumentState extends State<_SpaceDocument> {
 
   @override
   Widget build(BuildContext context) => _supported
-      ? PdfView(controller: _controller!)
+      ? PdfView(
+          controller: _controller!,
+          builders: PdfViewBuilders<DefaultBuilderOptions>(
+            options: const DefaultBuilderOptions(),
+            errorBuilder: (context, error) => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Unable to display this PDF.'),
+                  TextButton(
+                    onPressed: () => widget.launch(widget.uri),
+                    child: const Text('Open PDF in browser'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )
       : Center(
           child: TextButton(
             onPressed: () => widget.launch(widget.uri),

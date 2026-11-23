@@ -1,0 +1,65 @@
+services:
+  studio:
+    build:
+      context: ..
+      dockerfile: studio/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      STUDIO_TRUSTED_PROXIES: ${STUDIO_TRUSTED_PROXIES:-loopback,uniquelocal}
+      STUDIO_ORIGIN: https://${STUDIO_HOSTNAME:?Set STUDIO_HOSTNAME to your server domain}
+      STUDIO_MASTER_KEY: ${STUDIO_MASTER_KEY:?Run npm run configure and preserve the key}
+      STUDIO_SETUP_TOKEN: ${STUDIO_SETUP_TOKEN:?Run npm run configure}
+      STUDIO_DATABASE_URL: ${STUDIO_DATABASE_URL:?Set a persistent PostgreSQL URL}
+      STUDIO_DATABASE_SCHEMA: ${STUDIO_DATABASE_SCHEMA:-spacewidget}
+      STUDIO_DATABASE_TLS: ${STUDIO_DATABASE_TLS:-true}
+      STUDIO_DATABASE_CA: ${STUDIO_DATABASE_CA:-}
+      APP_DATABASE_URL: ${APP_DATABASE_URL:-}
+      APP_DATABASE_TLS: ${APP_DATABASE_TLS:-true}
+      STUDIO_DB_HOSTS: ${STUDIO_DB_HOSTS:-postgres}
+      STUDIO_HTTP_HOSTS: ${STUDIO_HTTP_HOSTS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      APPLE_CALLBACK_URL: ${APPLE_CALLBACK_URL:-}
+      SPACE_AUTH_RETURN_URLS: ${SPACE_AUTH_RETURN_URLS:-}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-stripe}
+      PAYMENT_CURRENCY: ${PAYMENT_CURRENCY:-usd}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_RETURN_URL: ${RAZORPAY_RETURN_URL:-}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-SpaceWidget <noreply@example.com>}
+    volumes:
+      - studio-data:/app/data
+    expose:
+      - "4100"
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      STUDIO_HOSTNAME: ${STUDIO_HOSTNAME}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      studio:
+        condition: service_healthy
+volumes:
+  studio-data:
+  caddy-data:
+  caddy-config:

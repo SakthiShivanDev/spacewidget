@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'controller.dart';
 import 'network.dart';
 import 'renderer.dart';
+import 'theme.dart';
 
 /// Material app with inline JSON routes and API-backed route descriptors.
 /// Use `initialSource` in config for a single-request startup screen. Remote
@@ -154,19 +155,6 @@ class _SpaceAppState extends State<SpaceApp> {
         'initialRoute "$initial" has no route or initialSource',
       );
     }
-    ThemeData theme(dynamic raw, Brightness brightness) {
-      final data = raw is Map ? raw : const {};
-      return ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: parseSpaceColor(data['seedColor']) ?? Colors.indigo,
-          brightness: brightness,
-        ),
-        fontFamily: data['fontFamily'] as String?,
-        scaffoldBackgroundColor: parseSpaceColor(data['backgroundColor']),
-      );
-    }
-
     Route<dynamic> route(RouteSettings settings) => MaterialPageRoute<dynamic>(
       settings: settings,
       builder: (context) => ValueListenableBuilder<int>(
@@ -174,24 +162,26 @@ class _SpaceAppState extends State<SpaceApp> {
         builder: (context, _, _) => _screen(context, settings),
       ),
     );
-    return MaterialApp(
-      title: config['title']?.toString() ?? 'SpaceWidget',
-      navigatorKey: widget.navigatorKey,
-      debugShowCheckedModeBanner: false,
-      theme: theme(config['theme'], Brightness.light),
-      darkTheme: theme(config['darkTheme'] ?? config['theme'], Brightness.dark),
-      themeMode: switch (config['themeMode']) {
-        'dark' => ThemeMode.dark,
-        'system' => ThemeMode.system,
-        _ => ThemeMode.light,
-      },
-      localizationsDelegates: widget.localizationsDelegates,
-      supportedLocales: widget.supportedLocales,
-      locale: widget.locale,
-      restorationScopeId: widget.restorationScopeId,
-      initialRoute: initial,
-      onGenerateInitialRoutes: (name) => [route(RouteSettings(name: name))],
-      onGenerateRoute: route,
+    return SpaceThemeFonts(
+      theme: config['theme'],
+      child: MaterialApp(
+        title: config['title']?.toString() ?? 'SpaceWidget',
+        navigatorKey: widget.navigatorKey,
+        debugShowCheckedModeBanner: false,
+        theme: buildSpaceTheme(config['theme']),
+        darkTheme: buildSpaceTheme(
+          spaceDarkTheme(config['theme'], config['darkTheme']),
+          brightness: Brightness.dark,
+        ),
+        themeMode: spaceThemeMode(config['themeMode']),
+        localizationsDelegates: widget.localizationsDelegates,
+        supportedLocales: widget.supportedLocales,
+        locale: widget.locale,
+        restorationScopeId: widget.restorationScopeId,
+        initialRoute: initial,
+        onGenerateInitialRoutes: (name) => [route(RouteSettings(name: name))],
+        onGenerateRoute: route,
+      ),
     );
   }
 }

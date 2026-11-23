@@ -1,0 +1,12 @@
+.git
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/.dart_tool
+**/build
+**/data
+**/dist
+**/test-results
+**/playwright-report
+**/*.log

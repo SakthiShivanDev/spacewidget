@@ -1,7 +1,48 @@
 part of 'renderer.dart';
 
+// Inline design assets also render on mobile, where data: URIs cannot be sent
+// through Image.network. Reuse decoded bytes across ordinary document rebuilds.
+final _inlineImageBytes = <String, Uint8List>{};
+int _inlineImageByteCount = 0;
+Uint8List _decodeInlineImage(String source) {
+  final cached = _inlineImageBytes.remove(source);
+  if (cached != null) {
+    _inlineImageBytes[source] = cached;
+    return cached;
+  }
+  if (source.length > 12 * 1024 * 1024) {
+    throw const FormatException('inline image exceeds the 8 MB limit');
+  }
+  final data = UriData.parse(source);
+  if (!const [
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/gif',
+      ].contains(data.mimeType) ||
+      !data.isBase64) {
+    throw const FormatException(
+      'inline image must be base64 PNG, JPEG, WebP or GIF',
+    );
+  }
+  final bytes = data.contentAsBytes();
+  if (bytes.length > 8 * 1024 * 1024) {
+    throw const FormatException('inline image exceeds the 8 MB limit');
+  }
+  while (_inlineImageBytes.isNotEmpty &&
+      _inlineImageByteCount + bytes.length > 8 * 1024 * 1024) {
+    _inlineImageByteCount -= _inlineImageBytes
+        .remove(_inlineImageBytes.keys.first)!
+        .length;
+  }
+  _inlineImageBytes[source] = bytes;
+  _inlineImageByteCount += bytes.length;
+  return bytes;
+}
+
 /// All built-in type names. A custom builder may add or override any type.
 const spaceWidgetTypes = <String>{
+  'customWidget',
   'scaffold',
   'appBar',
   'drawer',
@@ -236,13 +277,26 @@ Widget _buildWidget(_NodeBuilder b) {
           'navigation requires at least two destinations',
         );
       }
-      final selected = _selectedIndex(p, destinations.length);
+      final selectionPath = p.raw('bind') == null
+          ? '_navigation.${b.node.id ?? b.node.path}'
+          : p.string('bind');
+      final current = b.renderer.controller.read(
+        selectionPath,
+        p.integer('selectedIndex', 0),
+      );
+      final selected = current is num
+          ? current.toInt().clamp(0, destinations.length - 1)
+          : 0;
       void select(int index) {
-        if (p.raw('bind') != null) {
-          b.renderer.controller.setValue(p.string('bind'), index);
-        }
+        b.renderer.controller.setValue(selectionPath, index);
         final entry = destinations[index] as Map;
-        unawaited(b.action(entry['action'] ?? p.raw('onChanged')));
+        unawaited(
+          b.eventAction(entry['action'] ?? p.raw('onChanged'), {
+            'index': index,
+            'value': index,
+            'item': entry,
+          }),
+        );
       }
       for (final entry in destinations) {
         if (entry is! Map) {
@@ -263,10 +317,89 @@ Widget _buildWidget(_NodeBuilder b) {
           ],
         );
       }
+      if (p.string('destinationStyle') == 'pill') {
+        final scheme = Theme.of(b.context).colorScheme;
+        return Material(
+          color: p.color('backgroundColor', scheme.surface),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: p.number('height', 70),
+              child: Row(
+                children: [
+                  for (var i = 0; i < destinations.length; i++)
+                    Expanded(
+                      child: Semantics(
+                        role: SemanticsRole.tab,
+                        selected: selected == i,
+                        label: '${destinations[i]['label'] ?? ''}',
+                        child: InkWell(
+                          onTap: () => select(i),
+                          borderRadius: BorderRadius.circular(40),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: selected == i
+                                  ? p.color(
+                                      'indicatorColor',
+                                      scheme.primaryContainer,
+                                    )
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(40),
+                            ),
+                            child: ExcludeSemantics(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    spaceIcons[destinations[i][selected == i
+                                                ? 'selectedIcon'
+                                                : 'icon'] ??
+                                            destinations[i]['icon']] ??
+                                        Icons.circle_outlined,
+                                    size: p.number('iconSize', 24),
+                                    color: selected == i
+                                        ? p.color(
+                                            'selectedColor',
+                                            scheme.primary,
+                                          )
+                                        : p.color('color', scheme.onSurface),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '${destinations[i]['label'] ?? ''}',
+                                    style: TextStyle(
+                                      fontSize: p.number('fontSize', 12),
+                                      fontWeight: selected == i
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: selected == i
+                                          ? p.color(
+                                              'selectedColor',
+                                              scheme.primary,
+                                            )
+                                          : p.color('color', scheme.onSurface),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
       return NavigationBar(
         selectedIndex: selected,
         onDestinationSelected: select,
         backgroundColor: p.color('backgroundColor'),
+        indicatorColor: p.color('indicatorColor'),
         height: p.number('height'),
         destinations: [
           for (final entry in destinations)
@@ -295,16 +428,7 @@ Widget _buildWidget(_NodeBuilder b) {
         child: b.child,
       );
     case 'tabBar':
-      return TabBar(
-        isScrollable: p.boolean('isScrollable'),
-        tabs: b.children,
-        onTap: (index) {
-          if (p.raw('bind') != null) {
-            b.renderer.controller.setValue(p.string('bind'), index);
-          }
-          unawaited(b.action(p.raw('onChanged')));
-        },
-      );
+      return _SpaceTabBar(builder: b);
     case 'tabBarView':
       return TabBarView(children: b.children);
     case 'tab':
@@ -444,6 +568,9 @@ Widget _buildWidget(_NodeBuilder b) {
           crossAxisSpacing: p.positive('crossAxisSpacing', 8),
           mainAxisSpacing: p.positive('mainAxisSpacing', 8),
           childAspectRatio: p.positive('childAspectRatio', 1, zero: false),
+          mainAxisExtent: p.raw('mainAxisExtent') == null
+              ? null
+              : p.positive('mainAxisExtent', 1, zero: false),
         ),
         itemCount: b.node.children.length,
         itemBuilder: (context, index) => b.renderer.render(
@@ -501,6 +628,13 @@ Widget _buildWidget(_NodeBuilder b) {
       return ClipOval(child: b.child);
     case 'fittedBox':
       return FittedBox(fit: p.fit, alignment: p.alignment, child: b.child);
+    case 'customWidget':
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          'Custom widget: ${p.string('name')} — compile and register this builder in the Flutter host.',
+        ),
+      );
     case 'text':
       return Text(
         p.boolean('literal') ? '${p.raw('text') ?? ''}' : p.string('text'),
@@ -525,7 +659,7 @@ Widget _buildWidget(_NodeBuilder b) {
           style: p.textStyle,
           children: [
             for (final node in b.node.children)
-              _textSpan(node, b.renderer.controller),
+              _textSpan(node, b.renderer.controller, b.context),
           ],
         ),
         textAlign: p.textAlign,
@@ -544,7 +678,19 @@ Widget _buildWidget(_NodeBuilder b) {
         BuildContext context,
         Object error,
         StackTrace? stack,
-      ) => b.slot('error') ?? const Icon(Icons.broken_image_outlined);
+      ) {
+        b.renderer.reportIssue(
+          SpaceIssue(
+            '${b.node.path}.src',
+            'Unable to load image. Use a direct image URL with browser CORS access, an uploaded image, or a bundled asset.',
+          ),
+        );
+        return b.slot('error') ??
+            const Tooltip(
+              message: 'Image could not be loaded. Check its source and network access.',
+              child: Icon(Icons.broken_image_outlined),
+            );
+      }
       if (p.string('source', 'network') == 'asset') {
         return Image.asset(
           src,
@@ -556,6 +702,16 @@ Widget _buildWidget(_NodeBuilder b) {
         );
       }
       if (src.isEmpty) return error ?? const Icon(Icons.broken_image_outlined);
+      if (src.startsWith('data:')) {
+        return Image.memory(
+          _decodeInlineImage(src),
+          width: p.number('width'),
+          height: p.number('height'),
+          fit: p.fit,
+          semanticLabel: p.get('semanticLabel') as String?,
+          errorBuilder: errorBuilder,
+        );
+      }
       return Image.network(
         src,
         width: p.number('width'),
@@ -584,7 +740,9 @@ Widget _buildWidget(_NodeBuilder b) {
         color: p.color('backgroundColor'),
         elevation: p.positive('elevation', 1),
         margin: p.insets('margin', 4),
-        shape: RoundedRectangleBorder(borderRadius: p.radius),
+        shape: p.raw('borderRadius') == null
+            ? null
+            : RoundedRectangleBorder(borderRadius: p.radius),
         child: b.child,
       );
     case 'listTile':
@@ -657,6 +815,14 @@ Widget _buildWidget(_NodeBuilder b) {
             foregroundColor: p.raw('color') == null
                 ? null
                 : WidgetStatePropertyAll(p.color('color')),
+            side: p.raw('borderColor') == null
+                ? null
+                : WidgetStatePropertyAll(
+                    BorderSide(
+                      color: p.color('borderColor')!,
+                      width: p.positive('borderWidth', 1),
+                    ),
+                  ),
             padding: p.raw('padding') == null
                 ? null
                 : WidgetStatePropertyAll(p.insets('padding')),
@@ -672,6 +838,7 @@ Widget _buildWidget(_NodeBuilder b) {
     case 'iconButton':
       return IconButton(
         icon: icon(),
+        padding: p.raw('padding') == null ? null : p.insets('padding'),
         tooltip: p.get('tooltip') as String?,
         onPressed: p.boolean('enabled', true) && onTap != null
             ? () => b.action(onTap)
@@ -739,7 +906,8 @@ Widget _buildWidget(_NodeBuilder b) {
       );
     case 'refreshIndicator':
       return RefreshIndicator(
-        onRefresh: () => b.action(p.raw('onRefresh')),
+        onRefresh: () =>
+            b.action(p.raw('onRefresh') ?? const {'type': 'refresh'}),
         child: b.child,
       );
     case 'visibility':
@@ -811,7 +979,7 @@ Widget _buildWidget(_NodeBuilder b) {
         child: b.child,
       );
     case 'theme':
-      return Theme(data: _spaceTheme(p.values), child: b.child);
+      return Theme(data: _spaceTheme(p.values, b.context), child: b.child);
     case 'alertDialog':
       return AlertDialog(
         title: p.raw('title') is String
@@ -863,13 +1031,17 @@ int _selectedIndex(_Props p, int length) {
   return value;
 }
 
-TextSpan _textSpan(SpaceNode node, SpaceController controller) {
-  final p = _Props(node.props, controller);
+TextSpan _textSpan(
+  SpaceNode node,
+  SpaceController controller,
+  BuildContext context,
+) {
+  final p = _Props(node.props, controller, context);
   return TextSpan(
     text: p.string('text'),
     style: p.textStyle,
     children: node.children
-        .map((child) => _textSpan(child, controller))
+        .map((child) => _textSpan(child, controller, context))
         .toList(),
   );
 }
@@ -906,7 +1078,7 @@ class _ActionButtonState extends State<_ActionButton> {
   @override
   Widget build(BuildContext context) {
     final callback = widget.enabled && !_busy ? _press : null;
-    final child = _busy
+    final child = _busy && (ModalRoute.of(context)?.isCurrent ?? true)
         ? const SizedBox.square(
             dimension: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
@@ -943,7 +1115,45 @@ Widget _repeat(_NodeBuilder b) {
   if (template is! Map<String, dynamic>) {
     throw const FormatException('repeat.template must be a widget object');
   }
+  final layout = b.p.string('layout', 'list');
+  if (layout != 'list' && layout != 'grid') {
+    throw const FormatException('repeat.layout must be list or grid');
+  }
+  if (items.isEmpty && b.p.raw('empty') != null) return b.slot('empty')!;
   final shrink = b.p.boolean('shrinkWrap', true);
+  Widget itemBuilder(BuildContext context, int index) {
+    final expanded =
+        _expandTemplate(template, items[index], index) as Map<String, dynamic>;
+    return b.renderer.renderJson(
+      expanded,
+      context,
+      path: '${b.node.path}.items[$index]',
+      formId: b.formId,
+      depth: b.depth + 1,
+    );
+  }
+
+  if (layout == 'grid') {
+    return GridView.builder(
+      shrinkWrap: shrink,
+      primary: false,
+      physics: shrink
+          ? const NeverScrollableScrollPhysics()
+          : const AlwaysScrollableScrollPhysics(),
+      padding: b.p.insets('padding'),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: _positiveInt(b.p, 'crossAxisCount', 2),
+        crossAxisSpacing: b.p.positive('crossAxisSpacing', 12),
+        mainAxisSpacing: b.p.positive('mainAxisSpacing', 12),
+        childAspectRatio: b.p.positive('childAspectRatio', 1, zero: false),
+        mainAxisExtent: b.p.raw('mainAxisExtent') == null
+            ? null
+            : b.p.positive('mainAxisExtent', 1, zero: false),
+      ),
+      itemCount: items.length,
+      itemBuilder: itemBuilder,
+    );
+  }
   return ListView.builder(
     shrinkWrap: shrink,
     primary: false,
@@ -952,20 +1162,7 @@ Widget _repeat(_NodeBuilder b) {
         : const AlwaysScrollableScrollPhysics(),
     padding: b.p.insets('padding'),
     itemCount: items.length,
-    itemBuilder: (context, index) {
-      final expanded = _expandTemplate(
-        template,
-        items[index],
-        index,
-      ) as Map<String, dynamic>;
-      return b.renderer.renderJson(
-        expanded,
-        context,
-        path: '${b.node.path}.items[$index]',
-        formId: b.formId,
-        depth: b.depth + 1,
-      );
-    },
+    itemBuilder: itemBuilder,
   );
 }
 
@@ -1040,17 +1237,82 @@ Widget _stepper(_NodeBuilder b) {
   );
 }
 
-ThemeData _spaceTheme(Map<String, dynamic> data) {
-  final seed = parseSpaceColor(data['seedColor']) ?? Colors.indigo;
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: seed,
+ThemeData _spaceTheme(Map<String, dynamic> data, BuildContext context) =>
+    buildSpaceTheme(
+      {
+        ...data,
+        'fontFamily': resolveSpaceFontFamily(
+          context,
+          data['fontFamily'] as String?,
+        ),
+      },
       brightness: data['brightness'] == 'dark'
           ? Brightness.dark
           : Brightness.light,
-    ),
-    fontFamily: data['fontFamily'] as String?,
-    scaffoldBackgroundColor: parseSpaceColor(data['backgroundColor']),
-  );
+    );
+
+/// The tab controller reports both taps and swipes. Keep binding and actions in
+/// one listener so a tap never executes the same request twice.
+class _SpaceTabBar extends StatefulWidget {
+  final _NodeBuilder builder;
+  const _SpaceTabBar({required this.builder});
+  @override
+  State<_SpaceTabBar> createState() => _SpaceTabBarState();
+}
+
+class _SpaceTabBarState extends State<_SpaceTabBar> {
+  TabController? _tabs;
+  int? _last;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final tabs = DefaultTabController.maybeOf(context);
+    if (tabs == null) {
+      throw StateError('Place Tab Bar inside a Default Tab Controller');
+    }
+    if (_tabs != tabs) {
+      _tabs?.removeListener(_changed);
+      _tabs = tabs;
+      _last = tabs.index;
+      tabs.addListener(_changed);
+    }
+  }
+
+  void _changed() {
+    final index = _tabs!.index;
+    if (_last == index) return;
+    _last = index;
+    final b = widget.builder;
+    final bind = b.p.raw('bind');
+    if (bind != null) b.renderer.controller.setValue('$bind', index);
+    unawaited(
+      b.eventAction(b.p.raw('onChanged'), {
+        'index': index,
+        'value': index,
+      }, context),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = widget.builder;
+    final bind = b.p.raw('bind');
+    final bound = bind == null ? null : b.renderer.controller.read('$bind');
+    if (bound is num &&
+        bound.toInt() == bound &&
+        bound >= 0 &&
+        bound < _tabs!.length &&
+        bound != _tabs!.index) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && bound != _tabs!.index) _tabs!.animateTo(bound.toInt());
+      });
+    }
+    return TabBar(isScrollable: b.p.boolean('isScrollable'), tabs: b.children);
+  }
+
+  @override
+  void dispose() {
+    _tabs?.removeListener(_changed);
+    super.dispose();
+  }
 }

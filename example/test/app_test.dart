@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spacewidget_example/main.dart';
+import 'package:spacewidget_example/local_dashboard.dart';
 
 void main() {
   testWidgets('demo navigates from dashboard to projects and saves a profile', (

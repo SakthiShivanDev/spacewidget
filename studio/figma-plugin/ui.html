@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font:
+          14px/1.5 Inter,
+          Arial,
+          sans-serif;
+        margin: 0;
+        padding: 22px;
+        color: var(--figma-color-text, #292934);
+        background: var(--figma-color-bg, #fff);
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 8px;
+      }
+      p {
+        margin: 8px 0;
+        color: var(--figma-color-text-secondary, #656575);
+      }
+      button,
+      a {
+        font: inherit;
+      }
+      button {
+        border: 1px solid #d8d8df;
+        border-radius: 6px;
+        background: var(--figma-color-bg, #fff);
+        color: inherit;
+        padding: 9px 12px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .primary {
+        background: #1674e8;
+        color: white;
+        border-color: #1674e8;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin: 14px 0;
+      }
+      label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 14px;
+      }
+      #preview {
+        width: 100%;
+        max-height: 145px;
+        object-fit: contain;
+        background: #f0f0f4;
+        border: 1px solid #e5e5eb;
+        border-radius: 6px;
+        margin-top: 12px;
+      }
+      #status {
+        min-height: 45px;
+      }
+      #status.error {
+        color: #ba334a;
+      }
+      small {
+        display: block;
+        color: var(--figma-color-text-secondary, #656575);
+        font-size: 12px;
+      }
+      textarea {
+        width: 100%;
+        height: 70px;
+        font: 12px monospace;
+        margin: 8px 0;
+      }
+      #selection {
+        background: var(--figma-color-bg-secondary, #f3f5f9);
+        padding: 10px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Copy to Studio</h1>
+    <p>Select a frame, then export it for SpaceWidget.</p>
+    <div id="selection">Select a frame in Figma.</div>
+    <label
+      ><input id="snapshot" type="checkbox" />Visual snapshot only (smaller
+      export)</label
+    >
+    <div class="actions">
+      <button id="export" class="primary">Export selection</button>
+    </div>
+    <p id="status" role="status" aria-live="polite">
+      Text and shapes remain editable. Complex artwork is preserved as images.
+    </p>
+    <img id="preview" alt="Selected Figma design" hidden />
+    <div class="actions">
+      <button id="copy" class="primary" disabled>Copy for Studio</button
+      ><button id="download" disabled>Download JSON</button>
+    </div>
+    <textarea
+      id="manual"
+      aria-label="Exported design JSON"
+      readonly
+      hidden
+    ></textarea
+    ><small
+      >Then open Studio and press Ctrl/Cmd+V outside a text field. Importing
+      visual appearance does not create database bindings or app actions.</small
+    >
+    <script>
+      let exported = null;
+      const $ = (id) => document.getElementById(id);
+      const status = (text, error = false) => {
+        $("status").textContent = text;
+        $("status").className = error ? "error" : "";
+      };
+      $("export").onclick = () => {
+        exported = null;
+        $("copy").disabled = true;
+        $("download").disabled = true;
+        $("export").disabled = true;
+        $("manual").hidden = true;
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "export",
+              snapshotOnly: $("snapshot").checked,
+            },
+          },
+          "*",
+        );
+      };
+      window.onmessage = (event) => {
+        if (event.source !== parent || !event.data?.pluginMessage) return;
+        const message = event.data.pluginMessage;
+        if (message.type === "selection") {
+          exported = null;
+          $("copy").disabled = true;
+          $("download").disabled = true;
+          $("preview").hidden = true;
+          $("selection").textContent = message.count
+            ? `${message.count} selected: ${message.names.join(", ")}`
+            : "Select a frame in Figma.";
+        }
+        if (message.type === "progress")
+          status("Exporting selected layers and artwork…");
+        if (message.type === "error") {
+          status(message.message, true);
+          $("export").disabled = false;
+        }
+        if (message.type === "exported") {
+          exported = message.text;
+          $("preview").src = message.preview;
+          $("preview").hidden = false;
+          $("copy").disabled = false;
+          $("download").disabled = false;
+          $("export").disabled = false;
+          status(
+            `${message.frames} frame(s), ${message.layers} editable layer(s). Ready to copy.`,
+          );
+        }
+      };
+      $("copy").onclick = async () => {
+        if (!exported) return;
+        try {
+          // A user gesture and the UI iframe are required for system clipboard access.
+          // execCommand also works in Figma desktop versions without Clipboard API.
+          $("manual").hidden = false;
+          $("manual").value = exported;
+          $("manual").focus();
+          $("manual").select();
+          let copied = false;
+          try {
+            copied = document.execCommand("copy");
+          } catch {}
+          if (!copied && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(exported);
+            copied = true;
+          }
+          if (!copied) throw new Error("clipboard");
+          $("manual").hidden = true;
+          status("Copied. Switch to Studio and paste with Ctrl/Cmd+V.");
+        } catch {
+          $("manual").hidden = false;
+          status(
+            "Clipboard access is unavailable. Copy the selected JSON manually, or download it.",
+            true,
+          );
+        }
+      };
+      $("download").onclick = () => {
+        if (!exported) return;
+        const url = URL.createObjectURL(
+          new Blob([exported], { type: "application/json" }),
+        );
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "spacewidget-figma.json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+    </script>
+  </body>
+</html>

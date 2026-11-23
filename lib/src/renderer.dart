@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/foundation.dart';
 
@@ -8,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'controller.dart';
 import 'node.dart';
 import 'network.dart';
+import 'theme.dart';
 
 part 'properties.dart';
 part 'widgets.dart';
@@ -31,6 +33,11 @@ typedef SpaceErrorBuilder = Widget Function(
   SpaceIssue issue,
 );
 
+/// Observes a node at its actual build location without inserting render objects.
+/// Editors can read geometry from [context] after the frame has been laid out.
+/// The context is only valid while mounted. This callback never runs unless set.
+typedef SpaceNodeObserver = void Function(SpaceNode node, BuildContext context);
+
 /// Context supplied to a registered custom widget builder.
 class SpaceBuildContext {
   final BuildContext context;
@@ -39,6 +46,20 @@ class SpaceBuildContext {
   final Widget Function(SpaceNode node) build;
   final Future<void> Function(dynamic action) dispatch;
   final void Function(String name, dynamic value) saveFormValue;
+
+  /// Reads a property with the same typed bindings as built-in widgets.
+  dynamic read(String key, [dynamic fallback]) {
+    dynamic resolve(dynamic value) {
+      if (value is Map) {
+        return value.map((key, item) => MapEntry(key, resolve(item)));
+      }
+      if (value is List) return value.map(resolve).toList();
+      return controller.resolve(value);
+    }
+
+    return resolve(node.props[key]) ?? fallback;
+  }
+
   const SpaceBuildContext({
     required this.context,
     required this.node,
@@ -48,6 +69,24 @@ class SpaceBuildContext {
     required this.saveFormValue,
   });
 }
+
+/// Registers named, compiled Dart widgets for Studio's customWidget layers.
+/// Downloaded JSON chooses a name; only builders compiled into the host execute.
+Map<String, SpaceWidgetBuilder> spaceCustomWidgets(
+  Map<String, SpaceWidgetBuilder> builders,
+) => {
+  'customWidget': (space) {
+    final name = space.read('name', '').toString();
+    final builder = builders[name];
+    if (builder == null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Custom widget "$name" requires a compiled host builder.'),
+      );
+    }
+    return builder(space);
+  },
+};
 
 /// Host callbacks receive resolved action data and validated form values.
 class SpaceActionEvent {
@@ -65,6 +104,20 @@ class SpaceActionEvent {
   });
 }
 
+/// Supplies a refresh handler when rendering a screen in a custom host/editor.
+/// API-backed remote screens retain their own isolated refresh behavior.
+class SpaceRefreshScope extends InheritedWidget {
+  final Future<void> Function() onRefresh;
+  const SpaceRefreshScope({
+    super.key,
+    required this.onRefresh,
+    required super.child,
+  });
+  @override
+  bool updateShouldNotify(SpaceRefreshScope oldWidget) =>
+      onRefresh != oldWidget.onRefresh;
+}
+
 /// Renders one JSON tree. An externally supplied controller remains owned by
 /// the caller. Forms and their keys are isolated to this renderer instance.
 class SpaceWidget extends StatefulWidget {
@@ -77,6 +130,10 @@ class SpaceWidget extends StatefulWidget {
   final SpaceActionHandler? onAction;
   final ValueChanged<SpaceIssue>? onError;
   final SpaceErrorBuilder? errorBuilder;
+  final SpaceNodeObserver? onNodeBuilt;
+
+  /// Runs once after this screen instance first renders. Refreshes do not rerun it.
+  final dynamic onLoad;
 
   const SpaceWidget({
     super.key,
@@ -88,6 +145,8 @@ class SpaceWidget extends StatefulWidget {
     this.onAction,
     this.onError,
     this.errorBuilder,
+    this.onNodeBuilt,
+    this.onLoad,
   }) : node = null;
 
   const SpaceWidget.node({
@@ -100,6 +159,8 @@ class SpaceWidget extends StatefulWidget {
     this.onAction,
     this.onError,
     this.errorBuilder,
+    this.onNodeBuilt,
+    this.onLoad,
   }) : data = null;
 
   @override
@@ -118,6 +179,11 @@ class _SpaceWidgetState extends State<SpaceWidget> {
     _controller = widget.controller ?? SpaceController();
     _renderer = _SpaceRenderer(this);
     _parse();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _root != null && widget.onLoad != null) {
+        unawaited(_renderer.dispatch(context, _root!, widget.onLoad));
+      }
+    });
   }
 
   void _parse() {
@@ -179,12 +245,16 @@ class _SpaceRenderer {
 
   void beginBuild() => _reported.clear();
 
-  Widget error(BuildContext context, SpaceIssue issue) {
+  void reportIssue(SpaceIssue issue) {
     if (_reported.add(issue.toString())) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (owner.mounted) owner.widget.onError?.call(issue);
       });
     }
+  }
+
+  Widget error(BuildContext context, SpaceIssue issue) {
+    reportIssue(issue);
     return owner.widget.errorBuilder?.call(context, issue) ??
         Text(
           'SpaceWidget: ${issue.message}',
@@ -201,11 +271,25 @@ class _SpaceRenderer {
     // AppBar exposes PreferredSizeWidget to its parent. All other nodes build
     // at their actual position so inherited themes and action contexts work.
     if (node.type == 'appBar' && owner.widget.widgets[node.type] == null) {
-      return _renderNode(node, context, formId: formId, depth: depth);
+      final result = _renderNode(node, context, formId: formId, depth: depth);
+      if (owner.widget.onNodeBuilt == null || result is! PreferredSizeWidget) {
+        return result;
+      }
+      return PreferredSize(
+        preferredSize: result.preferredSize,
+        child: Builder(
+          builder: (context) {
+            owner.widget.onNodeBuilt?.call(node, context);
+            return result;
+          },
+        ),
+      );
     }
     final result = Builder(
-      builder: (context) =>
-          _renderNode(node, context, formId: formId, depth: depth),
+      builder: (context) {
+        owner.widget.onNodeBuilt?.call(node, context);
+        return _renderNode(node, context, formId: formId, depth: depth);
+      },
     );
     return node.id == null
         ? result
@@ -274,8 +358,9 @@ class _SpaceRenderer {
     SpaceNode node,
     dynamic raw, {
     String? formId,
+    Map<String, dynamic> event = const {},
   }) async {
-    await _dispatch(context, node, raw, formId: formId);
+    await _dispatch(context, node, raw, formId: formId, event: event);
   }
 
   Future<bool> _dispatch(
@@ -283,13 +368,20 @@ class _SpaceRenderer {
     SpaceNode node,
     dynamic raw, {
     String? formId,
+    Map<String, dynamic> event = const {},
   }) async {
     if (raw == null) return true;
     try {
       if (raw is List) {
         for (final action in raw) {
           if (!context.mounted || !owner.mounted) return false;
-          if (!await _dispatch(context, node, action, formId: formId)) {
+          if (!await _dispatch(
+            context,
+            node,
+            action,
+            formId: formId,
+            event: event,
+          )) {
             return false;
           }
         }
@@ -301,24 +393,59 @@ class _SpaceRenderer {
       if (raw is! Map<String, dynamic>) {
         throw const FormatException('action must be an object, name, or list');
       }
-      dynamic resolve(dynamic value) {
+      dynamic resolve(dynamic value, {bool actionRoot = false}) {
         if (value is Map<String, dynamic>) {
           return value.map(
             (k, v) => MapEntry(
               k,
-              const ['content', 'onSuccess', 'onFailure'].contains(k)
+              actionRoot &&
+                      const [
+                        'content',
+                        'onSuccess',
+                        'onFailure',
+                        'onDismiss',
+                        'then',
+                        'else',
+                      ].contains(k)
                   ? v
                   : resolve(v),
             ),
           );
         }
         if (value is List) return value.map(resolve).toList();
+        if (value is String && value.contains('{{event.')) {
+          final scope = SpaceController(
+            initialState: {...controller.state, 'event': event},
+            parent: controller.parent,
+          );
+          try {
+            return scope.resolve(value);
+          } finally {
+            scope.dispose();
+          }
+        }
         return controller.resolve(value);
       }
 
-      final action = Map<String, dynamic>.from(resolve(raw) as Map);
+      final action = Map<String, dynamic>.from(
+        resolve(raw, actionRoot: true) as Map,
+      );
       final type = action['type'] ?? 'callback';
       switch (type) {
+        case 'if':
+          final condition = action['condition'];
+          if (condition != null && condition is! bool) {
+            throw const FormatException(
+              'Action condition must resolve to a boolean',
+            );
+          }
+          return await _dispatch(
+            context,
+            node,
+            condition == true ? action['then'] : action['else'],
+            formId: formId,
+            event: event,
+          );
         case 'set':
           controller.setValue(_requiredString(action, 'path'), action['value']);
           return true;
@@ -367,7 +494,13 @@ class _SpaceRenderer {
               if (owner.mounted &&
                   context.mounted &&
                   action['refreshOnReturn'] == true) {
-                await parent?.refresh();
+                if (parent != null) {
+                  await parent.refresh();
+                } else {
+                  await context
+                      .getInheritedWidgetOfExactType<SpaceRefreshScope>()
+                      ?.onRefresh();
+                }
               }
             }
             return true;
@@ -386,10 +519,40 @@ class _SpaceRenderer {
             arguments: action['arguments'],
           );
           return true;
+        case 'openDrawer':
+          final scaffold = Scaffold.maybeOf(context);
+          if (scaffold == null) throw StateError('No scaffold is available');
+          if (action['end'] == true) {
+            scaffold.openEndDrawer();
+          } else {
+            scaffold.openDrawer();
+          }
+          return true;
+        case 'changeTab':
+          final tabs = DefaultTabController.maybeOf(context);
+          final index = action['index'];
+          if (tabs == null ||
+              index is! num ||
+              index.toInt() != index ||
+              index < 0 ||
+              index >= tabs.length) {
+            throw const FormatException(
+              'changeTab requires a valid tab index inside a tab controller',
+            );
+          }
+          tabs.animateTo(index.toInt());
+          return true;
         case 'refresh':
           final screen = _RemoteScope.maybeOf(context);
-          if (screen == null) throw StateError('No remote screen to refresh');
-          await screen.refresh();
+          final host = context
+              .dependOnInheritedWidgetOfExactType<SpaceRefreshScope>();
+          if (screen != null) {
+            await screen.refresh();
+          } else if (host != null) {
+            await host.onRefresh();
+          } else {
+            throw StateError('No screen refresh handler is available');
+          }
           return true;
         case 'increment':
           final path = _requiredString(action, 'path');
@@ -429,27 +592,63 @@ class _SpaceRenderer {
             content,
             path: '${node.path}.action.content',
           );
-          // Each overlay owns its forms, independently of the underlying page.
-          Widget buildOverlay(BuildContext overlayContext) => SpaceWidget.node(
-            node: child,
-            controller: controller,
-            services: owner.widget.services,
-            widgets: owner.widget.widgets,
-            actions: owner.widget.actions,
-            onAction: owner.widget.onAction,
-            onError: owner.widget.onError,
-            errorBuilder: owner.widget.errorBuilder,
-          );
+          // Overlay forms are isolated, while state and service configuration are shared.
+          Widget buildOverlay(BuildContext overlayContext) {
+            final rendered = SpaceWidget.node(
+              node: child,
+              controller: controller,
+              services:
+                  owner.widget.services ??
+                  _RemoteScope.maybeOf(context)?.services,
+              widgets: owner.widget.widgets,
+              actions: owner.widget.actions,
+              onAction: owner.widget.onAction,
+              onError: owner.widget.onError,
+              errorBuilder: owner.widget.errorBuilder,
+              onNodeBuilt: owner.widget.onNodeBuilt,
+            );
+            return type == 'dialog' &&
+                    !const ['dialog', 'alertDialog'].contains(child.type)
+                ? Dialog(child: rendered)
+                : rendered;
+          }
+
+          final dynamic result;
           if (type == 'dialog') {
-            await showDialog<void>(context: context, builder: buildOverlay);
-          } else {
-            await showModalBottomSheet<void>(
+            result = await showDialog<dynamic>(
               context: context,
-              isScrollControlled: true,
+              barrierDismissible: action['dismissible'] != false,
+              useRootNavigator: action['useRootNavigator'] != false,
               builder: buildOverlay,
             );
+          } else {
+            result = await showModalBottomSheet<dynamic>(
+              context: context,
+              useRootNavigator: action['useRootNavigator'] == true,
+              isDismissible: action['dismissible'] != false,
+              enableDrag: action['enableDrag'] != false,
+              showDragHandle: action['showDragHandle'] != false,
+              useSafeArea: true,
+              isScrollControlled: true,
+              builder: (overlayContext) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(overlayContext).bottom,
+                ),
+                child: buildOverlay(overlayContext),
+              ),
+            );
           }
-          return true;
+          if (!owner.mounted || !context.mounted) return false;
+          if (action['resultPath'] is String) {
+            controller.setValue(action['resultPath'], result);
+          }
+          return await _dispatch(
+            context,
+            node,
+            action['onDismiss'],
+            formId: formId,
+            event: {...event, 'result': result},
+          );
       }
       if (!owner.mounted || !context.mounted) return false;
       Map<String, dynamic> values = const {};
@@ -464,7 +663,8 @@ class _SpaceRenderer {
       }
       if (type == 'request' ||
           type == 'operation' ||
-          (type == 'submit' && action['source'] != null)) {
+          (type == 'submit' &&
+              (action['source'] != null || action['operation'] != null))) {
         final services =
             owner.widget.services ?? _RemoteScope.maybeOf(context)?.services;
         if (services == null) {
@@ -478,6 +678,7 @@ class _SpaceRenderer {
               source:
                   action['source']?.toString() ??
                   action['name']?.toString() ??
+                  action['operation']?.toString() ??
                   '',
               method:
                   action['method']?.toString() ??
@@ -491,13 +692,18 @@ class _SpaceRenderer {
             ),
             operation: type == 'operation'
                 ? _requiredString(action, 'name')
+                : type == 'submit'
+                ? action['operation']?.toString()
                 : null,
           );
           if (!owner.mounted || !context.mounted || cancellation.isCancelled) {
             return false;
           }
           if (action['resultPath'] != null) {
-            controller.setValue(action['resultPath'].toString(), result.data);
+            controller.setValue(action['resultPath'].toString(), {
+              ...result.data,
+              if (result.message != null) 'message': result.message,
+            });
           }
           if (!result.success) {
             if (!result.cancelled) {
@@ -506,6 +712,7 @@ class _SpaceRenderer {
                 node,
                 action['onFailure'],
                 formId: formId,
+                event: event,
               );
             }
             return false;
@@ -516,9 +723,12 @@ class _SpaceRenderer {
               'success': true,
               'widgets': result.widgets,
             });
-            if (action['presentation'] == 'dialog') {
+            if (const [
+              'dialog',
+              'bottomSheet',
+            ].contains(action['presentation'])) {
               await _dispatch(context, node, {
-                'type': 'dialog',
+                'type': action['presentation'],
                 'content': result.widgets,
               }, formId: formId);
             } else {
@@ -546,6 +756,7 @@ class _SpaceRenderer {
               node,
               action['onSuccess'],
               formId: formId,
+              event: event,
             );
           }
           return true;
@@ -553,7 +764,20 @@ class _SpaceRenderer {
           if (owner.mounted &&
               context.mounted &&
               (!cancellation.isCancelled || error is TimeoutException)) {
-            await _dispatch(context, node, action['onFailure'], formId: formId);
+            if (action['resultPath'] is String) {
+              controller.setValue(action['resultPath'], {
+                'message': error is TimeoutException
+                    ? 'Request timed out. Please try again.'
+                    : 'Unable to complete the request. Please try again.',
+              });
+            }
+            await _dispatch(
+              context,
+              node,
+              action['onFailure'],
+              formId: formId,
+              event: event,
+            );
           }
           rethrow;
         } finally {
@@ -610,7 +834,7 @@ class _NodeBuilder {
   final BuildContext context;
   final String? formId;
   final int depth;
-  late final _Props p = _Props(node.props, renderer.controller);
+  late final _Props p = _Props(node.props, renderer.controller, context);
   _NodeBuilder(this.renderer, this.node, this.context, this.formId, this.depth);
 
   Widget render(SpaceNode child, {String? form}) =>
@@ -646,6 +870,18 @@ class _NodeBuilder {
 
   Future<void> action(dynamic value, [BuildContext? actionContext]) =>
       renderer.dispatch(actionContext ?? context, node, value, formId: formId);
+
+  Future<void> eventAction(
+    dynamic value,
+    Map<String, dynamic> event, [
+    BuildContext? actionContext,
+  ]) => renderer.dispatch(
+    actionContext ?? context,
+    node,
+    value,
+    formId: formId,
+    event: event,
+  );
 
   Widget build() => _buildWidget(this);
 }

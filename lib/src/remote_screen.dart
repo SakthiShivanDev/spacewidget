@@ -152,7 +152,11 @@ class _SpaceRemoteScreenState extends State<SpaceRemoteScreen> {
       }
       _local.patch({
         ...document.state,
-        'route': {'source': widget.source, 'arguments': widget.arguments},
+        'route': {
+          'source': widget.source,
+          'arguments': widget.arguments,
+          'query': widget.query,
+        },
       });
       setState(() {
         _document = document;
@@ -192,7 +196,11 @@ class _SpaceRemoteScreenState extends State<SpaceRemoteScreen> {
             final document = SpaceDocument.fromJson(cached);
             _local.patch({
               ...document.state,
-              'route': {'source': widget.source, 'arguments': widget.arguments},
+              'route': {
+                'source': widget.source,
+                'arguments': widget.arguments,
+                'query': widget.query,
+              },
             });
             setState(() {
               _document = document;
@@ -270,6 +278,7 @@ class _SpaceRemoteScreenState extends State<SpaceRemoteScreen> {
       content = SpaceWidget.node(
         key: ValueKey('${widget.source}:${document.id ?? ''}'),
         node: document.root,
+        onLoad: document.json['onLoad'],
         controller: _local,
         services: widget.services,
         widgets: widget.widgets,
@@ -279,58 +288,58 @@ class _SpaceRemoteScreenState extends State<SpaceRemoteScreen> {
         errorBuilder: widget.errorBuilder,
       );
       if (document.bodyOnly) content = Scaffold(body: content);
-      if (_refreshing || _error != null || _offline) {
-        content = Stack(
-          children: [
-            Positioned.fill(child: content),
-            if (_refreshing)
-              const Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: LinearProgressIndicator(),
-              ),
-            if (_offline && _error == null)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Material(
-                  child: SafeArea(
-                    top: false,
-                    child: ListTile(
-                      title: const Text('Offline: showing a saved screen'),
-                      trailing: TextButton(
-                        onPressed: () => _load(refresh: true),
-                        child: const Text('Reconnect'),
-                      ),
+      // Keep the subtree mounted during refresh so local field state and the
+      // once-per-instance opening event survive loading/status changes.
+      content = Stack(
+        children: [
+          Positioned.fill(child: content),
+          if (_refreshing)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(),
+            ),
+          if (_offline && _error == null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Material(
+                child: SafeArea(
+                  top: false,
+                  child: ListTile(
+                    title: const Text('Offline: showing a saved screen'),
+                    trailing: TextButton(
+                      onPressed: () => _load(refresh: true),
+                      child: const Text('Reconnect'),
                     ),
                   ),
                 ),
               ),
-            if (_error != null)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Material(
-                  child: SafeArea(
-                    top: false,
-                    child: ListTile(
-                      title: const Text(
-                        'Refresh failed. Your screen is preserved.',
-                      ),
-                      trailing: TextButton(
-                        onPressed: () => _load(refresh: true),
-                        child: const Text('Retry'),
-                      ),
+            ),
+          if (_error != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Material(
+                child: SafeArea(
+                  top: false,
+                  child: ListTile(
+                    title: const Text(
+                      'Refresh failed. Your screen is preserved.',
+                    ),
+                    trailing: TextButton(
+                      onPressed: () => _load(refresh: true),
+                      child: const Text('Retry'),
                     ),
                   ),
                 ),
               ),
-          ],
-        );
-      }
+            ),
+        ],
+      );
     }
     return _RemoteScope(
       services: widget.services,

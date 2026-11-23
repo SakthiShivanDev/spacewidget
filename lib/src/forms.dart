@@ -212,12 +212,29 @@ class _SpaceFieldState extends State<_SpaceField> {
     helperText: p.get('helperText') as String?,
     filled: p.boolean('filled'),
     fillColor: p.color('backgroundColor'),
+    contentPadding: p.raw('padding') == null ? null : p.insets('padding'),
+    hintStyle: p.raw('fontSize') == null
+        ? null
+        : TextStyle(fontSize: p.number('fontSize')),
+    prefixIconColor: p.color('iconColor'),
     prefixIcon: p.raw('icon') == null
         ? null
         : Icon(spaceIcons[p.string('icon')] ?? Icons.edit_outlined),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(p.positive('borderRadius', 8)),
-    ),
+    border: p.raw('borderRadius') == null
+        ? Theme.of(context).inputDecorationTheme.border ??
+              OutlineInputBorder(borderRadius: BorderRadius.circular(8))
+        : OutlineInputBorder(
+            borderRadius: BorderRadius.circular(p.positive('borderRadius', 8)),
+          ),
+    enabledBorder: p.raw('borderColor') == null
+        ? null
+        : OutlineInputBorder(
+            borderRadius: BorderRadius.circular(p.positive('borderRadius', 8)),
+            borderSide: BorderSide(
+              color: p.color('borderColor')!,
+              width: p.positive('borderWidth', 1),
+            ),
+          ),
   );
 
   List<Map<String, dynamic>> get options {
@@ -264,6 +281,14 @@ class _SpaceFieldState extends State<_SpaceField> {
             readOnly: p.boolean('readOnly'),
             obscureText: obscure,
             keyboardType: keyboard,
+            style: p.raw('fontSize') == null ? null : p.textStyle,
+            textInputAction: switch (p.string('textInputAction')) {
+              'search' => TextInputAction.search,
+              'done' => TextInputAction.done,
+              'next' => TextInputAction.next,
+              'send' => TextInputAction.send,
+              _ => null,
+            },
             minLines: obscure
                 ? 1
                 : p.integer('minLines', type == 'textArea' ? 3 : 1),
@@ -277,6 +302,18 @@ class _SpaceFieldState extends State<_SpaceField> {
             onChanged: _change,
             validator: _validate,
             onSaved: _save,
+            onFieldSubmitted: p.raw('onSubmitted') == null
+                ? null
+                : (value) {
+                    _debounce?.cancel();
+                    _publishedValue = value;
+                    if (binding != null) {
+                      b.renderer.controller.setValue(binding!, value);
+                    }
+                    unawaited(
+                      b.eventAction(p.raw('onSubmitted'), {'value': value}),
+                    );
+                  },
           );
         case 'autocomplete':
           final choices = options;

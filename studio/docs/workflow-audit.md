@@ -1,0 +1,22 @@
+# Designer workflow audit
+
+This checklist maps the requested product fixes to their implementation and regression coverage. A passing local suite establishes the behavior tested here; provider credentials, device permissions and deployed return links still need environment-specific qualification.
+
+| Requested workflow | Implementation | Coverage |
+| --- | --- | --- |
+| Configure bottom navigation once | A layout owns the bar; destinations inherit its appearance and selected item. Each tab maps declared screen parameters. Layout-only startup resolves its first tab's layout defaults and verified user bindings. Inherited canvas selections open the owning layout. | Screen workflow and browser journeys |
+| Clear Studio data | Explicit reset backs up the configured PostgreSQL schema, recreates migrations and preserves external connected databases. The local reset was completed before this follow-up. | Reset integration test and fresh setup check |
+| Understand database content | Content owns database queries and API sources. Query setup separates records, fields and filters. A database operation builder explains ownership, editable fields and affected records. | Designer and operation browser journeys |
+| Remove duplicate API/settings pages | API connections live under Content; app keys under Connect app. Provider configuration has one home in Integrations; Users & sign-in owns users and form setup. | Browser navigation journeys |
+| Understand widget settings | Appearance, Content and Interactions are the default inspector sections. Technical JSON is opt-in. Component instances expose typed property controls. | Catalog and browser tests |
+| Run opening actions | Screen Interactions owns When screen opens. Functions can be attached from Custom code. Opening overlays have editable layers and an isolated Flutter preview; component references expand before delivery. | Lifecycle, overlay API and browser tests |
+| Define and pass screen parameters | Setup declares types, required values, defaults and preview examples. Navigation and API mappings use named pickers. Screen deletion identifies existing links. | Parameter/filter and browser journeys |
+| Use saved operations | Action inputs derive from editable fields and filter inputs. Generated forms include record IDs needed by filters. Delete operations do not require unrelated editable fields. | Ownership integration and form browser tests |
+| Reuse components safely | Extraction targets the active screen, component or opening overlay. Usage includes overlays and nested components; replacement choices exclude dependency cycles. | Authoring unit and extraction browser tests |
+| Edit working tabs | Inserting a tab bar/page view supplies its controller and companion. Adding or deleting tabs synchronizes labels, pages and controller length. | Customization and authoring regressions |
+| Test and bind external APIs | Saved endpoints can be edited, tested with query/body values and used as canvas samples. Mutation tests require explicit confirmation. Private/public source restrictions are explained. | HTTP integration and API browser journeys |
+| Configure authentication | Users & sign-in creates a sign-in screen and maps its success destination. OAuth preserves that destination and parameters across restart; its fallback is the app start screen. | OAuth adapter and browser tests |
+| Route notifications | The destination picker uses published screens. Parameters are typed and checked before preview/queue; drafts are excluded. Delivery resolves an owned notification ID. | Notification and push integration tests |
+| Keep preview and app aligned | Flutter is the only renderer. Theme/release/data selection is explicit, and a build records its SDK source hash. A source change during compilation invalidates the build. Save/undo/redo shortcuts reach Studio when the preview frame has focus; published comparison stays read-only. | Preview source verification and browser journeys |
+
+The application remains one deployable Studio server with shared authoring contracts and separate Flutter packages. Custom Dart requires compilation into the Flutter host and preview. Backend JavaScript is a bounded synchronous function; saved HTTP endpoints provide external network calls. Designer controls do not replace payment-provider provisioning, OAuth registration, Firebase initialization or native app-link setup.

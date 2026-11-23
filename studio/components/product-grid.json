@@ -1,0 +1,330 @@
+{
+  "id": "product-grid",
+  "name": "Product grid",
+  "defaults": {
+    "items": "{{products}}",
+    "columns": 2,
+    "tabletColumns": 3,
+    "desktopColumns": 4,
+    "spacing": 12,
+    "cardAspectRatio": 0.58,
+    "currency": "USD",
+    "nameField": "name",
+    "categoryField": "category",
+    "priceField": "price",
+    "imageField": "image_url",
+    "onProductTap": null,
+    "emptyText": "No products found."
+  },
+  "tree": {
+    "type": "responsive",
+    "mediumBreakpoint": 600,
+    "largeBreakpoint": 1024,
+    "small": {
+      "type": "repeat",
+      "layout": "grid",
+      "items": "{{props.items}}",
+      "shrinkWrap": true,
+      "padding": 0,
+      "crossAxisCount": "{{props.columns}}",
+      "crossAxisSpacing": "{{props.spacing}}",
+      "mainAxisSpacing": "{{props.spacing}}",
+      "childAspectRatio": "{{props.cardAspectRatio}}",
+      "template": {
+        "type": "container",
+        "padding": 12,
+        "backgroundColor": "#FFFFFF",
+        "border": true,
+        "borderColor": "#E8E4EF",
+        "borderRadius": 18,
+        "child": {
+          "type": "inkWell",
+          "borderRadius": 12,
+          "action": "{{props.onProductTap}}",
+          "child": {
+            "type": "column",
+            "crossAxisAlignment": "start",
+            "children": [
+              {
+                "type": "aspectRatio",
+                "aspectRatio": 1,
+                "child": {
+                  "type": "clipRRect",
+                  "borderRadius": 12,
+                  "child": {
+                    "type": "container",
+                    "backgroundColor": "#F4F1F8",
+                    "child": {
+                      "type": "image",
+                      "src": "{{item.{{props.imageField}}}}",
+                      "fit": "cover",
+                      "error": {
+                        "type": "center",
+                        "child": {
+                          "type": "icon",
+                          "name": "image",
+                          "size": 36,
+                          "color": "#AEA2C1"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "sizedBox",
+                "height": 8
+              },
+              {
+                "type": "text",
+                "text": "{{item.{{props.categoryField}}}}",
+                "fontSize": 11,
+                "lineHeight": 1.1,
+                "color": "#887B9D",
+                "maxLines": 1
+              },
+              {
+                "type": "sizedBox",
+                "height": 4
+              },
+              {
+                "type": "text",
+                "text": "{{item.{{props.nameField}}}}",
+                "fontSize": 14,
+                "fontWeight": 600,
+                "lineHeight": 1.25,
+                "color": "#2C2538",
+                "maxLines": 2
+              },
+              {
+                "type": "spacer"
+              },
+              {
+                "type": "sizedBox",
+                "height": 6
+              },
+              {
+                "type": "text",
+                "text": "{{props.currency}} {{item.{{props.priceField}}}}",
+                "fontSize": 16,
+                "fontWeight": 700,
+                "lineHeight": 1.2,
+                "color": "#65509B",
+                "maxLines": 1
+              }
+            ]
+          }
+        }
+      },
+      "empty": {
+        "type": "emptyState",
+        "text": "{{props.emptyText}}",
+        "padding": 24
+      }
+    },
+    "medium": {
+      "type": "repeat",
+      "layout": "grid",
+      "items": "{{props.items}}",
+      "shrinkWrap": true,
+      "padding": 0,
+      "crossAxisCount": "{{props.tabletColumns}}",
+      "crossAxisSpacing": "{{props.spacing}}",
+      "mainAxisSpacing": "{{props.spacing}}",
+      "childAspectRatio": "{{props.cardAspectRatio}}",
+      "template": {
+        "type": "container",
+        "padding": 12,
+        "backgroundColor": "#FFFFFF",
+        "border": true,
+        "borderColor": "#E8E4EF",
+        "borderRadius": 18,
+        "child": {
+          "type": "inkWell",
+          "borderRadius": 12,
+          "action": "{{props.onProductTap}}",
+          "child": {
+            "type": "column",
+            "crossAxisAlignment": "start",
+            "children": [
+              {
+                "type": "aspectRatio",
+                "aspectRatio": 1,
+                "child": {
+                  "type": "clipRRect",
+                  "borderRadius": 12,
+                  "child": {
+                    "type": "container",
+                    "backgroundColor": "#F4F1F8",
+                    "child": {
+                      "type": "image",
+                      "src": "{{item.{{props.imageField}}}}",
+                      "fit": "cover",
+                      "error": {
+                        "type": "center",
+                        "child": {
+                          "type": "icon",
+                          "name": "image",
+                          "size": 36,
+                          "color": "#AEA2C1"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "sizedBox",
+                "height": 8
+              },
+              {
+                "type": "text",
+                "text": "{{item.{{props.categoryField}}}}",
+                "fontSize": 11,
+                "lineHeight": 1.1,
+                "color": "#887B9D",
+                "maxLines": 1
+              },
+              {
+                "type": "sizedBox",
+                "height": 4
+              },
+              {
+                "type": "text",
+                "text": "{{item.{{props.nameField}}}}",
+                "fontSize": 14,
+                "fontWeight": 600,
+                "lineHeight": 1.25,
+                "color": "#2C2538",
+                "maxLines": 2
+              },
+              {
+                "type": "spacer"
+              },
+              {
+                "type": "sizedBox",
+                "height": 6
+              },
+              {
+                "type": "text",
+                "text": "{{props.currency}} {{item.{{props.priceField}}}}",
+                "fontSize": 16,
+                "fontWeight": 700,
+                "lineHeight": 1.2,
+                "color": "#65509B",
+                "maxLines": 1
+              }
+            ]
+          }
+        }
+      },
+      "empty": {
+        "type": "emptyState",
+        "text": "{{props.emptyText}}",
+        "padding": 24
+      }
+    },
+    "large": {
+      "type": "repeat",
+      "layout": "grid",
+      "items": "{{props.items}}",
+      "shrinkWrap": true,
+      "padding": 0,
+      "crossAxisCount": "{{props.desktopColumns}}",
+      "crossAxisSpacing": "{{props.spacing}}",
+      "mainAxisSpacing": "{{props.spacing}}",
+      "childAspectRatio": "{{props.cardAspectRatio}}",
+      "template": {
+        "type": "container",
+        "padding": 12,
+        "backgroundColor": "#FFFFFF",
+        "border": true,
+        "borderColor": "#E8E4EF",
+        "borderRadius": 18,
+        "child": {
+          "type": "inkWell",
+          "borderRadius": 12,
+          "action": "{{props.onProductTap}}",
+          "child": {
+            "type": "column",
+            "crossAxisAlignment": "start",
+            "children": [
+              {
+                "type": "aspectRatio",
+                "aspectRatio": 1,
+                "child": {
+                  "type": "clipRRect",
+                  "borderRadius": 12,
+                  "child": {
+                    "type": "container",
+                    "backgroundColor": "#F4F1F8",
+                    "child": {
+                      "type": "image",
+                      "src": "{{item.{{props.imageField}}}}",
+                      "fit": "cover",
+                      "error": {
+                        "type": "center",
+                        "child": {
+                          "type": "icon",
+                          "name": "image",
+                          "size": 36,
+                          "color": "#AEA2C1"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "sizedBox",
+                "height": 8
+              },
+              {
+                "type": "text",
+                "text": "{{item.{{props.categoryField}}}}",
+                "fontSize": 11,
+                "lineHeight": 1.1,
+                "color": "#887B9D",
+                "maxLines": 1
+              },
+              {
+                "type": "sizedBox",
+                "height": 4
+              },
+              {
+                "type": "text",
+                "text": "{{item.{{props.nameField}}}}",
+                "fontSize": 14,
+                "fontWeight": 600,
+                "lineHeight": 1.25,
+                "color": "#2C2538",
+                "maxLines": 2
+              },
+              {
+                "type": "spacer"
+              },
+              {
+                "type": "sizedBox",
+                "height": 6
+              },
+              {
+                "type": "text",
+                "text": "{{props.currency}} {{item.{{props.priceField}}}}",
+                "fontSize": 16,
+                "fontWeight": 700,
+                "lineHeight": 1.2,
+                "color": "#65509B",
+                "maxLines": 1
+              }
+            ]
+          }
+        }
+      },
+      "empty": {
+        "type": "emptyState",
+        "text": "{{props.emptyText}}",
+        "padding": 24
+      }
+    }
+  }
+}

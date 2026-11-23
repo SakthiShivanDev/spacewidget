@@ -1,0 +1,34 @@
+name: Validate SDK and Studio
+on: [push, pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: studio
+          POSTGRES_PASSWORD: studio-test-only
+          POSTGRES_DB: studio_tests
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      STUDIO_TEST_POSTGRES_URL: postgresql://studio:studio-test-only@127.0.0.1:5432/studio_tests
+      CHROME_BIN: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.6
+          channel: stable
+          cache: true
+      - run: npm ci
+        working-directory: studio
+      - run: npm run verify
+        working-directory: studio
+      - run: docker build -f studio/Dockerfile .

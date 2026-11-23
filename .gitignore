@@ -29,3 +29,7 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 **/build/
 /coverage/
+
+# Local browser verification artifacts
+/test-results/
+/playwright-report/

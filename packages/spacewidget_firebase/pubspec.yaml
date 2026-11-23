@@ -1,0 +1,21 @@
+name: spacewidget_firebase
+description: Optional Firebase Cloud Messaging integration for hosted SpaceWidget apps.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ^3.13.0
+  flutter: '>=3.47.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  spacewidget:
+    path: ../..
+  spacewidget_adapters:
+    path: ../spacewidget_adapters
+  firebase_messaging: ^17.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  dio: ^5.11.1
+  firebase_messaging_platform_interface: ^4.12.0

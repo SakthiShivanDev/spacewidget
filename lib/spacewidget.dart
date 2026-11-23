@@ -6,3 +6,5 @@ export 'src/controller.dart';
 export 'src/node.dart';
 export 'src/renderer.dart';
 export 'src/network.dart';
+
+export 'src/theme.dart';

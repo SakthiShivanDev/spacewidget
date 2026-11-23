@@ -1,6 +1,19 @@
 # SpaceWidget examples
 
-Two entry points demonstrate the Flutter-only core and the optional service adapters.
+Three entry points demonstrate the Flutter-only core, custom service adapters, and the hosted Studio client.
+
+## Hosted Studio app
+
+Start the [separate Studio service](../studio/README.md), create an app, publish a release and create its API key. From `example`:
+
+```sh
+flutter pub get
+flutter run -d chrome -t lib/main_hosted.dart \
+  --dart-define=SPACE_STUDIO_URL=http://localhost:4100 \
+  --dart-define=SPACE_STUDIO_KEY=YOUR_PUBLISHABLE_RUNTIME_KEY
+```
+
+Use your HTTPS origin when deploying. The key identifies the app and is expected to be distributed with it; it does not grant access to builder administration or private user records. The hosted entry point uses the client's secure session store; complete the consuming platform's secure-storage setup for native builds.
 
 ## Remote application workspaces
 
@@ -35,10 +48,10 @@ The API listens at `http://127.0.0.1:8080`. Pass a different port to the server 
 ## Local JSON dashboard
 
 ```sh
-flutter run -d chrome
+flutter run -d chrome -t lib/main_local.dart
 ```
 
-`lib/main.dart` loads `assets/app.json`, demonstrating themes, navigation, profile validation, dialogs, shared bindings, and a custom status widget without the API server.
+`lib/main_local.dart` loads `assets/app.json`, demonstrating themes, navigation, profile validation, dialogs, shared bindings, and a custom status widget without the API server.
 
 ## Validation and builds
 

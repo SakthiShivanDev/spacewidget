@@ -3,7 +3,8 @@ part of 'renderer.dart';
 class _Props {
   final Map<String, dynamic> values;
   final SpaceController controller;
-  _Props(this.values, this.controller);
+  final BuildContext? context;
+  _Props(this.values, this.controller, [this.context]);
   dynamic raw(String key) => values[key];
   dynamic get(String key, [dynamic fallback]) =>
       controller.resolve(values[key]) ?? fallback;
@@ -49,8 +50,27 @@ class _Props {
     return value;
   }
 
-  Color? color(String key, [Color? fallback]) =>
-      parseSpaceColor(get(key)) ?? fallback;
+  Color? color(String key, [Color? fallback]) {
+    final value = get(key);
+    if (value is String && value.startsWith('@theme.') && context != null) {
+      final theme = Theme.of(context!);
+      final scheme = theme.colorScheme;
+      return switch (value.substring(7)) {
+        'primary' => scheme.primary,
+        'onPrimary' => scheme.onPrimary,
+        'secondary' => scheme.secondary,
+        'onSecondary' => scheme.onSecondary,
+        'surface' => scheme.surface,
+        'onSurface' => scheme.onSurface,
+        'error' => scheme.error,
+        'onError' => scheme.onError,
+        'background' => theme.scaffoldBackgroundColor,
+        _ => throw FormatException('Unknown theme color: $value'),
+      };
+    }
+    return parseSpaceColor(value) ?? fallback;
+  }
+
   EdgeInsets insets(String key, [double fallback = 0]) {
     final value = get(key);
     if (value == null) return EdgeInsets.all(fallback);
@@ -88,7 +108,7 @@ class _Props {
       fontSize: number('fontSize'),
       fontWeight: weights[weight],
       color: color('color'),
-      fontFamily: get('fontFamily') as String?,
+      fontFamily: resolveSpaceFontFamily(context, get('fontFamily') as String?),
       fontStyle: boolean('italic') ? FontStyle.italic : FontStyle.normal,
       letterSpacing: number('letterSpacing'),
       height: number('lineHeight'),
@@ -184,6 +204,19 @@ Color? parseSpaceColor(dynamic value) {
 /// consumers retain Flutter's icon tree shaking support.
 const spaceIcons = <String, IconData>{
   'home': Icons.home_outlined,
+  'home_filled': Icons.home_rounded,
+  'person_filled': Icons.person_rounded,
+  'shopping_bag': Icons.shopping_bag_outlined,
+  'inventory': Icons.inventory_2_outlined,
+  'headphones': Icons.headphones_outlined,
+  'backpack': Icons.backpack_outlined,
+  'chair': Icons.chair_outlined,
+  'gift': Icons.card_giftcard_outlined,
+  'category': Icons.widgets_outlined,
+  'qr_code_scanner': Icons.qr_code_scanner,
+  'arrow_forward': Icons.arrow_forward_rounded,
+  'favorite_filled': Icons.favorite_rounded,
+  'more_horiz': Icons.more_horiz,
   'menu': Icons.menu,
   'back': Icons.arrow_back,
   'close': Icons.close,
@@ -214,6 +247,20 @@ const spaceIcons = <String, IconData>{
   'time': Icons.access_time,
   'location': Icons.location_on_outlined,
   'shoppingCart': Icons.shopping_cart_outlined,
+  'shopping_cart': Icons.shopping_cart_outlined,
+  'receipt_long': Icons.receipt_long_outlined,
+  'receipt': Icons.receipt_outlined,
+  'school': Icons.school_outlined,
+  'book': Icons.menu_book_outlined,
+  'bookmark': Icons.bookmark_outline,
+  'play': Icons.play_arrow_outlined,
+  'pause': Icons.pause,
+  'filter': Icons.filter_list,
+  'sort': Icons.sort,
+  'truck': Icons.local_shipping_outlined,
+  'camera': Icons.camera_alt_outlined,
+  'language': Icons.language,
+  'link': Icons.link,
   'payment': Icons.payment_outlined,
   'dashboard': Icons.dashboard_outlined,
   'list': Icons.list,

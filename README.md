@@ -6,6 +6,19 @@ The core depends only on Flutter. Complete screens load from one API response, a
 
 Start with the [API-driven app guide](docs/remote-apps.md), [adapter setup](packages/spacewidget_adapters/README.md), and [eight-workspace demo](example/README.md). These provide application building blocks and executable workflows; real production releases still require domain backends, provider setup, and device validation.
 
+## Self-hosted visual builder
+
+[SpaceWidget Studio](studio/README.md) is a separate browser editor and API server. Create screens and reusable components, connect PostgreSQL tables, configure selected fields and user-scoped filters, and publish versioned screen APIs. The Flutter app connects using a server origin and publishable app key:
+
+```dart
+runApp(const SpaceHostedApp(
+  baseUrl: 'https://studio.example.com',
+  apiKey: 'YOUR_PUBLISHABLE_RUNTIME_KEY',
+));
+```
+
+Import `package:spacewidget_adapters/spacewidget_adapters.dart` for `SpaceHostedApp`. The companion handles authenticated sessions and provides login, signup, password-reset and email-verification widgets. App keys identify applications; private records require a separate user session. Studio includes Node 24 setup, database/action editors, API-key rotation, release rollback and Docker/Caddy deployment configuration. See the [Studio designer guide](studio/docs/designer-guide.md), [architecture](studio/docs/architecture.md), and [hosted example](example/README.md#hosted-studio-app) and [API contract](studio/docs/api.md).
+
 ## Requirements
 
 Flutter 3.47+ and Dart 3.13+. Verified with Flutter 3.47.6 / Dart 3.13.5. This is an initial package implementation; it has not been published to pub.dev.
@@ -71,7 +84,7 @@ runApp(SpaceApp(
 ));
 ```
 
-Schema version 1 is supported. `darkTheme` accepts the same keys as `theme`: `seedColor`, `fontFamily`, and `backgroundColor`. `SpaceApp` owns its controller unless one is supplied. Config updates preserve current state; call `controller.reset()` explicitly to replace state. Named navigation is intended for app screens; browser URL synchronization and deep-link parsing can be integrated by embedding `SpaceWidget` under your router.
+Schema version 1 is supported. `theme` and `darkTheme` support `seedColor`, exact `primaryColor`/`secondaryColor`, `surfaceColor`/`errorColor`, their `on…Color` text colors, `backgroundColor`, `fontFamily`, `fontSize`, and `borderRadius`. Uploaded TTF/OTF files in `theme.fonts` load in both Studio and the hosted app. Dark appearance generates its own colors unless overridden by `darkTheme`. Color properties can reference app roles such as `@theme.primary` or `@theme.surface`; explicit widget colors take priority. `SpaceApp` owns its controller unless one is supplied. Config updates preserve current state; call `controller.reset()` explicitly to replace state. Named navigation is intended for app screens; browser URL synchronization and deep-link parsing can be integrated by embedding `SpaceWidget` under your router.
 
 ## JSON conventions
 
@@ -223,7 +236,7 @@ Important properties:
 | Table/stepper | table: string or `{key,label,numeric}` `columns`, cell-list or keyed-map `rows`, `sortable`, `selectable`, `bind`, `rowKey`, `pageSize`; stepper: `steps: [{title, content}]`, state `bind`, `selectedIndex`, `onChanged`, `onComplete`, `direction` |
 | Animation | `duration` in milliseconds, plus opacity/container properties; switcher: stable distinct child `id`s; transform: rotation `angle` in radians, `scale` |
 
-Supported icon names are exported in `spaceIcons`; custom icon systems can use a registered widget builder. Asset images and custom fonts must be declared by the consuming app. Include `uses-material-design: true` in the application’s `flutter` pubspec section for Material icons. Image caching beyond Flutter's image cache can be supplied through an image builder override.
+Supported icon names are exported in `spaceIcons`; custom icon systems can use a registered widget builder. Asset images and custom fonts must be declared by the consuming app. `image.src` also accepts base64 PNG, JPEG, WebP and GIF data URIs (up to 8 MB decoded); these render from memory on web and native platforms. Studio’s Figma importer uses embedded PNG assets. Include `uses-material-design: true` in the application’s `flutter` pubspec section for Material icons. Image caching beyond Flutter's image cache can be supplied through an image builder override.
 
 ## Extended widget properties
 
@@ -257,3 +270,7 @@ flutter build web --release
 ```
 
 Tests cover state and parsing, widget construction/layout across the catalog, form validation and persistence, selection controls, custom builders, route sharing, dialogs, responsive behavior, async submission, and the demo's navigation/profile flow.
+
+The Studio also includes a [working commerce reference app and provider integrations](docs/commerce-and-integrations.md), with guided overlay/navigation/API actions, environment-backed database connections, server-owned checkout totals and stock, Google OIDC, payment returns and optional Firebase push support.
+
+Studio platform features and PostgreSQL/provider configuration are documented in [platform setup](docs/platform-setup.md).

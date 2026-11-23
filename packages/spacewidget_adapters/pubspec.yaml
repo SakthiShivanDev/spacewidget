@@ -1,6 +1,6 @@
 name: spacewidget_adapters
 description: Optional HTTP, live data, media, maps, file and checkout integrations for SpaceWidget.
-version: 0.2.0
+version: 0.3.0
 publish_to: none
 
 environment:
@@ -8,11 +8,14 @@ environment:
   flutter: '>=3.47.0'
 
 dependencies:
+  app_links: ^7.2.2
+  crypto: ^3.0.8
   dio: ^5.11.1
   file_selector: ^1.1.0
   flutter:
     sdk: flutter
   flutter_map: ^8.3.2
+  flutter_secure_storage: ^11.2.0
   image_picker: ^1.2.4
   latlong2: ^0.10.1
   pdfx: ^2.11.0

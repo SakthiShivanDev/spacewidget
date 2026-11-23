@@ -1,0 +1,4 @@
+{$STUDIO_HOSTNAME} {
+  encode zstd gzip
+  reverse_proxy studio:4100
+}
